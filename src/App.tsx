@@ -123,7 +123,7 @@ function App() {
   useEffect(() => {
     const checkConnection = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/chat', {
+        const response = await fetch('https://chat-ia-backend-crbz.onrender.com/api/chat', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -185,7 +185,7 @@ function App() {
     setConnectionError(false);
   
     try {
-      const response = await fetch('http://localhost:5000/api/chat', {
+      const response = await fetch('https://chat-ia-backend-crbz.onrender.com/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
