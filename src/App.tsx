@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Send } from 'lucide-react';
-import PS from './assets/person.png'
+import PS from './assets/peopleIcon.png'
 import RB from './assets/robot.png'
 
 // Tipos
