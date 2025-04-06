@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect } from 'react';
 import { Send } from 'lucide-react';
-import PS from './assets/peopleIcon.png'
-import RB from './assets/robot.png'
+import PS from './assets/peopleIcon.png';
+import RB from './assets/robot.png';
 
 // Tipos
 type Message = {
@@ -84,7 +85,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
 
         {/* Container da Mensagem */}
         <div className={`
-          max-w-[calc(100%-60px)]  // Ajuste para deixar espaço para o avatar
+          max-w-[calc(100%-60px)]
           sm:max-w-[calc(100%-70px)]
           md:max-w-[80%] 
           rounded-lg px-4 py-2 
@@ -118,44 +119,60 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
   const [lastRequestTime, setLastRequestTime] = useState<number | null>(null);
+  const [isOnline, setIsOnline] = useState(false);
 
-  // Verificar conexão com o backend ao carregar
+  // Verificar conexão com o backend ao carregar e ping periódico
   useEffect(() => {
     const checkConnection = async () => {
       try {
-        const response = await fetch('https://chat-ia-backend-crbz.onrender.com/api/chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ message: 'ping' }),
-        });
+        // Usando endpoint dedicado para health check
+        const response = await fetch('https://chat-ia-backend-crbz.onrender.com/health');
         
         if (!response.ok) {
           throw new Error('Backend not responding');
         }
+        
+        const data = await response.json();
+        if (data.status === 'ok') {
+          setIsOnline(true);
+          setConnectionError(false);
+        } else {
+          throw new Error('Backend status not ok');
+        }
       } catch (error) {
         console.error('Connection check failed:', error);
+        setIsOnline(false);
         setConnectionError(true);
         
-        const errorMessage: Message = {
-          role: 'system',
-          content: 'Erro: Não foi possível conectar ao servidor. Verifique se o backend está rodando.',
-          timestamp: Date.now(),
-        };
-        setMessages(prev => [...prev, errorMessage]);
+        if (messages.length === 0 || messages[messages.length - 1].role !== 'system') {
+          const errorMessage: Message = {
+            role: 'system',
+            content: 'Erro: Não foi possível conectar ao servidor. Tentando reconectar...',
+            timestamp: Date.now(),
+          };
+          setMessages(prev => [...prev, errorMessage]);
+        }
       }
     };
     
+    // Verificar imediatamente
     checkConnection();
-
-    // Adicionando mensagem inicial do assistente
-    const welcomeMessage: Message = {
-      role: 'assistant',
-      content: 'Olá, eu sou **Aether**, seu assistente técnico altamente especializado em desenvolvimento de software. Como posso te ajudar hoje?',
-      timestamp: Date.now(),
-    };
-    setMessages([welcomeMessage]);
+    
+    // Configurar intervalo para ping periódico (5 minutos)
+    const interval = setInterval(checkConnection, 300000);
+    
+    // Adicionando mensagem inicial do assistente (apenas se não houver mensagens)
+    if (messages.length === 0) {
+      const welcomeMessage: Message = {
+        role: 'assistant',
+        content: 'Olá, eu sou **Aether**, seu assistente técnico altamente especializado em desenvolvimento de software. Como posso te ajudar hoje?',
+        timestamp: Date.now(),
+      };
+      setMessages([welcomeMessage]);
+    }
+    
+    // Limpar intervalo ao desmontar
+    return () => clearInterval(interval);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -213,6 +230,7 @@ function App() {
       };
   
       setMessages(prev => [...prev, assistantMessage]);
+      setIsOnline(true);
     } catch (error) {
       console.error('Error:', error);
       
@@ -223,6 +241,7 @@ function App() {
       };
       setMessages(prev => [...prev, errorMessage]);
       setConnectionError(true);
+      setIsOnline(false);
     } finally {
       setLoading(false);
     }
@@ -232,10 +251,22 @@ function App() {
     <div className="flex h-screen bg-gray-100">
       <div className="flex-1 flex flex-col max-w-5xl mx-auto bg-white shadow-xl">
         <header className="p-4 border-b">
-          <h1 className="text-xl font-semibold">Aether Chat</h1>
-          {connectionError && (
-            <p className="text-red-500 text-sm">Problema de conexão com o servidor</p>
-          )}
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-semibold">Aether Chat</h1>
+            <div className="flex items-center">
+              {isOnline ? (
+                <span className="flex items-center text-green-500 text-sm">
+                  <span className="w-2 h-2 rounded-full bg-green-500 mr-1"></span>
+                  Online
+                </span>
+              ) : (
+                <span className="flex items-center text-red-500 text-sm">
+                  <span className="w-2 h-2 rounded-full bg-red-500 mr-1"></span>
+                  Offline
+                </span>
+              )}
+            </div>
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -257,11 +288,11 @@ function App() {
               onChange={(e) => setInput(e.target.value)}
               placeholder="Digite sua mensagem..."
               className="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-              disabled={loading || connectionError}
+              disabled={loading || !isOnline}
             />
             <button
               type="submit"
-              disabled={loading || connectionError || !input.trim()}
+              disabled={loading || !isOnline || !input.trim()}
               className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center"
             >
               <Send size={20} />
