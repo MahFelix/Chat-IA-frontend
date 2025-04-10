@@ -24,11 +24,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
         const languageMatch = part.match(/^```(\w+)/);
         const language = languageMatch ? languageMatch[1] : '';
         const code = part.replace(/^```[\w]*\n/, '').replace(/```$/, '');
-        
+
         return (
-          <pre key={index} className={`my-2 p-4 rounded-lg bg-gray-800 text-gray-100 overflow-x-auto ${
-            message.role === 'assistant' ? 'border-l-4 border-blue-500' : ''
-          }`}>
+          <pre key={index} className={`my-2 p-4 rounded-lg bg-gray-800 text-gray-100 overflow-x-auto ${message.role === 'assistant' ? 'border-l-4 border-blue-500' : ''
+            }`}>
             {language && (
               <div className="text-xs text-gray-400 mb-2">
                 {language.toUpperCase()}
@@ -53,7 +52,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
           .replace(/^## (.*$)/gm, '<h4 className="font-bold mt-3 mb-1">$1</h4>')
           .replace(/^- (.*$)/gm, '<li class="ml-4">$1</li>')
           .replace(/\n/g, '<br />');
-        
+
         return (
           <div key={index} className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: formattedText }} />
         );
@@ -63,9 +62,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
 
   return (
     <div className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} mb-4 px-2`}>
-      <div className={`flex items-start gap-2 max-w-full ${
-        message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
-      }`}>
+      <div className={`flex items-start gap-2 max-w-full ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
+        }`}>
         {/* Container do Avatar - Ajustado para mobile */}
         <div className={`
           flex-shrink-0
@@ -76,9 +74,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
           overflow-hidden
           ${message.role === 'user' ? 'bg-gray-500' : 'bg-gray-400'}
         `}>
-          <img 
-            src={message.role === 'user' ? PS : RB} 
-            alt={message.role === 'user' ? 'User Avatar' : 'Assistant Avatar'} 
+          <img
+            src={message.role === 'user' ? PS : RB}
+            alt={message.role === 'user' ? 'User Avatar' : 'Assistant Avatar'}
             className="w-full h-full object-cover"
           />
         </div>
@@ -89,20 +87,19 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
           sm:max-w-[calc(100%-70px)]
           md:max-w-[80%] 
           rounded-lg px-4 py-2 
-          ${message.role === 'user' 
-            ? 'bg-blue-500 text-white rounded-br-none' 
+          ${message.role === 'user'
+            ? 'bg-blue-500 text-white rounded-br-none'
             : 'bg-gray-200 text-gray-800 rounded-bl-none'
           }
         `}>
           <div className="prose max-w-none">
             {formatMessage(message.content)}
           </div>
-          <div className={`text-xs mt-1 ${
-            message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
-          }`}>
-            {new Date(message.timestamp).toLocaleTimeString([], { 
-              hour: '2-digit', 
-              minute: '2-digit' 
+          <div className={`text-xs mt-1 ${message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
+            }`}>
+            {new Date(message.timestamp).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit'
             })}
           </div>
         </div>
@@ -127,11 +124,11 @@ function App() {
       try {
         // Usando endpoint dedicado para health check
         const response = await fetch('https://chat-ia-backend-crbz.onrender.com/health');
-        
+
         if (!response.ok) {
           throw new Error('Backend not responding');
         }
-        
+
         const data = await response.json();
         if (data.status === 'ok') {
           setIsOnline(true);
@@ -143,7 +140,7 @@ function App() {
         console.error('Connection check failed:', error);
         setIsOnline(false);
         setConnectionError(true);
-        
+
         if (messages.length === 0 || messages[messages.length - 1].role !== 'system') {
           const errorMessage: Message = {
             role: 'system',
@@ -154,13 +151,13 @@ function App() {
         }
       }
     };
-    
+
     // Verificar imediatamente
     checkConnection();
-    
+
     // Configurar intervalo para ping periódico (5 minutos)
     const interval = setInterval(checkConnection, 300000);
-    
+
     // Adicionando mensagem inicial do assistente (apenas se não houver mensagens)
     if (messages.length === 0) {
       const welcomeMessage: Message = {
@@ -170,7 +167,7 @@ function App() {
       };
       setMessages([welcomeMessage]);
     }
-    
+
     // Limpar intervalo ao desmontar
     return () => clearInterval(interval);
   }, []);
@@ -178,11 +175,11 @@ function App() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || loading) return;
-
+  
     if (lastRequestTime && Date.now() - lastRequestTime < 3000) {
       setMessages(prev => [...prev, {
         role: 'system',
-        content: 'Por favor, espere alguns segundos entre as mensagens',
+        content: 'Por favor, espere alguns segundos entre as mensagens.',
         timestamp: Date.now(),
       }]);
       return;
@@ -202,43 +199,46 @@ function App() {
     setConnectionError(false);
   
     try {
-      const response = await fetch('https://chat-ia-backend-crbz.onrender.com/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          message: input,
-          context: messages.map(msg => ({
-            sender: msg.role,
-            text: msg.content
-          }))
-        }),
-      });
+      if (input.toLowerCase().startsWith('imagem:')) {
+        const prompt = input.replace(/^imagem:/i, '').trim();
+        await generateImage(prompt);
+      } else {
+        const response = await fetch('https://chat-ia-backend-crbz.onrender.com/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            message: input,
+            context: messages.map(msg => ({
+              sender: msg.role,
+              text: msg.content
+            }))
+          }),
+        });
   
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+        }
+  
+        const data = await response.json();
+        const assistantMessage: Message = {
+          role: 'assistant',
+          content: data.reply,
+          timestamp: Date.now(),
+        };
+  
+        setMessages(prev => [...prev, assistantMessage]);
+        setIsOnline(true);
       }
-  
-      const data = await response.json();
-      
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: data.reply,
-        timestamp: Date.now(),
-      };
-  
-      setMessages(prev => [...prev, assistantMessage]);
-      setIsOnline(true);
     } catch (error) {
       console.error('Error:', error);
-      
+  
       const errorMessage: Message = {
         role: 'system',
         content: error instanceof Error ? error.message : 'Erro desconhecido ao processar sua mensagem',
         timestamp: Date.now(),
       };
+  
       setMessages(prev => [...prev, errorMessage]);
       setConnectionError(true);
       setIsOnline(false);
@@ -246,6 +246,44 @@ function App() {
       setLoading(false);
     }
   };
+  
+
+  const generateImage = async (prompt: string) => {
+    try {
+      const response = await fetch("https://chat-ia-backend-crbz.onrender.com/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Erro ao gerar imagem");
+      }
+  
+      const data = await response.json();
+  
+      const imageMessage: Message = {
+        role: "assistant",
+        content: `<img src="${data.image_url}" alt="Imagem gerada" class="rounded-lg max-w-xs" />`,
+        timestamp: Date.now(),
+      };
+  
+      setMessages(prev => [...prev, imageMessage]);
+    } catch (error) {
+      console.error("Erro ao gerar imagem:", error);
+      const errorMessage: Message = {
+        role: "system",
+        content: "Erro ao gerar imagem. Tente novamente.",
+        timestamp: Date.now(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -270,6 +308,15 @@ function App() {
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 space-y-4">
+
+          {messages.map((msg, index) => (
+            <div key={index} className={`p-2 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
+              <div
+                className="prose max-w-full"
+                dangerouslySetInnerHTML={{ __html: msg.content }}
+              />
+            </div>
+          ))}
           {messages.map((message, index) => (
             <ChatMessage key={`${message.timestamp}-${index}`} message={message} />
           ))}
