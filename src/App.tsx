@@ -188,6 +188,22 @@ function App() {
       }]);
       return;
     }
+
+    const isImageCommand = /^imagem:\s*/i.test(input);
+
+    if (isImageCommand) {
+      const prompt = input.replace(/^imagem:\s*/i, '').trim();
+      if (!prompt) {
+        setMessages(prev => [...prev, {
+          role: 'system',
+          content: '⚠️ Por favor, forneça uma descrição para a imagem após "imagem:"',
+          timestamp: Date.now(),
+        }]);
+        return;
+      }
+      await generateImage(prompt);
+      return;
+    }
   
     // Prepara mensagem do usuário
     const userMessage: Message = {
@@ -259,6 +275,7 @@ function App() {
   };
   
   const generateImage = async (prompt: string) => {
+    setLoading(true);
     try {
       // Adiciona mensagem de status
       setMessages(prev => [...prev, {
@@ -270,41 +287,37 @@ function App() {
       const response = await fetch("https://chat-ia-backend-crbz.onrender.com/api/generate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          prompt: `${prompt} - alta qualidade, estilo realista, 4k` 
-        }),
+        body: JSON.stringify({ prompt }),
       });
   
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Falha na geração da imagem');
+        throw new Error(await response.text());
       }
   
       const data = await response.json();
       
-      // Remove a mensagem de "Gerando imagem..." e adiciona o resultado
+      // Atualiza mensagem de status com a imagem
       setMessages(prev => [
-        ...prev.slice(0, -1),
+        ...prev.slice(0, -1), // Remove a mensagem de "Gerando..."
         {
           role: 'assistant',
-          content: `🎨 **Imagem gerada:** "${prompt}"\n\n![${prompt}](${data.image_url})`,
+          content: `🎨 **Imagem gerada:**\n\n![${prompt}](${data.image_url})`,
           timestamp: Date.now(),
         }
       ]);
   
     } catch (error) {
-      console.error("Erro na geração de imagem:", error);
-      // Remove a mensagem de "Gerando imagem..." e adiciona o erro
+      console.error("Image generation failed:", error);
       setMessages(prev => [
         ...prev.slice(0, -1),
         {
           role: 'system',
-          content: error instanceof Error
-            ? `⚠️ Falha ao gerar imagem: ${error.message}`
-            : '⚠️ Falha ao gerar imagem',
+          content: `⚠️ Falha ao gerar imagem: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
           timestamp: Date.now(),
         }
       ]);
+    } finally {
+      setLoading(false);
     }
   };
   
