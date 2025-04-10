@@ -174,72 +174,83 @@ function App() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || loading) return;
-  
+    
+    // Validações iniciais
+    if (!input.trim()) return;
+    if (loading) return;
+    
+    // Limite de rate (3 segundos entre mensagens)
     if (lastRequestTime && Date.now() - lastRequestTime < 3000) {
       setMessages(prev => [...prev, {
         role: 'system',
-        content: 'Por favor, espere alguns segundos entre as mensagens.',
+        content: '⏳ Por favor, espere alguns segundos entre as mensagens.',
         timestamp: Date.now(),
       }]);
       return;
     }
   
-    setLastRequestTime(Date.now());
-  
+    // Prepara mensagem do usuário
     const userMessage: Message = {
       role: 'user',
       content: input,
       timestamp: Date.now(),
     };
   
+    // Atualiza estados
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setLoading(true);
+    setLastRequestTime(Date.now());
     setConnectionError(false);
   
     try {
+      // Verifica se é comando de imagem
       if (input.toLowerCase().startsWith('imagem:')) {
-        const prompt = input.replace(/^imagem:/i, '').trim();
+        const prompt = input.substring(7).trim();
+        if (!prompt) {
+          throw new Error('Por favor, forneça uma descrição para a imagem');
+        }
         await generateImage(prompt);
-      } else {
-        const response = await fetch('https://chat-ia-backend-crbz.onrender.com/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            message: input,
-            context: messages.map(msg => ({
+        return;
+      }
+  
+      // Chamada normal para o chat
+      const response = await fetch('https://chat-ia-backend-crbz.onrender.com/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          message: input,
+          context: messages
+            .filter(msg => msg.role !== 'system') // Filtra mensagens de sistema
+            .map(msg => ({
               sender: msg.role,
               text: msg.content
             }))
-          }),
-        });
+        }),
+      });
   
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
-        }
-  
-        const data = await response.json();
-        const assistantMessage: Message = {
-          role: 'assistant',
-          content: data.reply,
-          timestamp: Date.now(),
-        };
-  
-        setMessages(prev => [...prev, assistantMessage]);
-        setIsOnline(true);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `Erro no servidor: ${response.status}`);
       }
-    } catch (error) {
-      console.error('Error:', error);
   
-      const errorMessage: Message = {
-        role: 'system',
-        content: error instanceof Error ? error.message : 'Erro desconhecido ao processar sua mensagem',
+      const data = await response.json();
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: data.reply,
         timestamp: Date.now(),
-      };
+      }]);
+      setIsOnline(true);
   
-      setMessages(prev => [...prev, errorMessage]);
+    } catch (error) {
+      console.error('Erro no chat:', error);
+      setMessages(prev => [...prev, {
+        role: 'system',
+        content: error instanceof Error 
+          ? `⚠️ ${error.message}`
+          : '⚠️ Ocorreu um erro inesperado',
+        timestamp: Date.now(),
+      }]);
       setConnectionError(true);
       setIsOnline(false);
     } finally {
@@ -247,42 +258,55 @@ function App() {
     }
   };
   
-
   const generateImage = async (prompt: string) => {
     try {
-      setLoading(true);
+      // Adiciona mensagem de status
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: '🖌️ Gerando sua imagem...',
+        timestamp: Date.now(),
+      }]);
+  
       const response = await fetch("https://chat-ia-backend-crbz.onrender.com/api/generate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ 
+          prompt: `${prompt} - alta qualidade, estilo realista, 4k` 
+        }),
       });
   
       if (!response.ok) {
-        throw new Error("Erro ao gerar imagem");
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Falha na geração da imagem');
       }
   
       const data = await response.json();
       
-      const imageMessage: Message = {
-        role: "assistant",
-        content: `**Imagem gerada:**\n\n![Imagem gerada](${data.image_url})`,
-        timestamp: Date.now(),
-      };
+      // Remove a mensagem de "Gerando imagem..." e adiciona o resultado
+      setMessages(prev => [
+        ...prev.slice(0, -1),
+        {
+          role: 'assistant',
+          content: `🎨 **Imagem gerada:** "${prompt}"\n\n![${prompt}](${data.image_url})`,
+          timestamp: Date.now(),
+        }
+      ]);
   
-      setMessages(prev => [...prev, imageMessage]);
     } catch (error) {
-      console.error("Erro ao gerar imagem:", error);
-      const errorMessage: Message = {
-        role: "system",
-        content: "Erro ao gerar imagem. Tente novamente.",
-        timestamp: Date.now(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setLoading(false);
+      console.error("Erro na geração de imagem:", error);
+      // Remove a mensagem de "Gerando imagem..." e adiciona o erro
+      setMessages(prev => [
+        ...prev.slice(0, -1),
+        {
+          role: 'system',
+          content: error instanceof Error
+            ? `⚠️ Falha ao gerar imagem: ${error.message}`
+            : '⚠️ Falha ao gerar imagem',
+          timestamp: Date.now(),
+        }
+      ]);
     }
-  
-  }
+  };
   
   return (
     <div className="flex h-screen bg-gray-100">
