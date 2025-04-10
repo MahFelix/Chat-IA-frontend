@@ -250,6 +250,7 @@ function App() {
 
   const generateImage = async (prompt: string) => {
     try {
+      setLoading(true);
       const response = await fetch("https://chat-ia-backend-crbz.onrender.com/api/generate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -257,15 +258,14 @@ function App() {
       });
   
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Erro ao gerar imagem");
+        throw new Error("Erro ao gerar imagem");
       }
   
       const data = await response.json();
-  
+      
       const imageMessage: Message = {
         role: "assistant",
-        content: `<img src="${data.image_url}" alt="Imagem gerada" class="rounded-lg max-w-xs" />`,
+        content: `**Imagem gerada:**\n\n![Imagem gerada](${data.image_url})`,
         timestamp: Date.now(),
       };
   
@@ -281,10 +281,9 @@ function App() {
     } finally {
       setLoading(false);
     }
-  };
   
-
-
+  }
+  
   return (
     <div className="flex h-screen bg-gray-100">
       <div className="flex-1 flex flex-col max-w-5xl mx-auto bg-white shadow-xl">
